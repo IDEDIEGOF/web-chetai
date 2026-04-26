@@ -1,0 +1,255 @@
+# Plan de Desarrollo — ChetAI Landing Page
+
+Web corporativa one-page para ChetAI, agencia de automatización con IA para PYMEs españolas.
+
+---
+
+## 1. Visión General
+
+Landing page de una sola página con scroll suave entre secciones: Hero, Servicios, Casos de Éxito y Contacto. Sin rutas ni navegación multi-página. El formulario de contacto envía emails al propietario.
+
+---
+
+## 2. Stack Tecnológico
+
+| Capa | Tecnología |
+|---|---|
+| Framework | Next.js 14 (App Router) |
+| Estilos | Tailwind CSS |
+| Componentes UI | shadcn/ui |
+| Envío de email | Resend (API de email) |
+| Formularios | React Hook Form + Zod |
+| Animaciones | Framer Motion |
+| Iconos | Lucide React |
+| Hosting | Dokploy (VPS) |
+| Control de versiones | Git + GitHub |
+
+---
+
+## 3. Estructura de Proyecto
+
+```
+chetai-web/
+├── src/
+│   ├── app/
+│   │   ├── page.tsx              # La landing completa
+│   │   ├── layout.tsx            # Root layout + metadata SEO
+│   │   ├── globals.css
+│   │   └── api/
+│   │       └── contact/
+│   │           └── route.ts      # API Route: recibe form y envía email con Resend
+│   │
+│   ├── components/
+│   │   ├── sections/
+│   │   │   ├── Hero.tsx          # Sección principal con CTA
+│   │   │   ├── Services.tsx      # Cards de servicios ofrecidos
+│   │   │   ├── CaseStudies.tsx   # Casos de éxito / resultados
+│   │   │   └── Contact.tsx       # Formulario de contacto
+│   │   │
+│   │   └── layout/
+│   │       ├── Navbar.tsx        # Navbar sticky con links de ancla (#servicios, etc.)
+│   │       └── Footer.tsx
+│   │
+│   ├── lib/
+│   │   └── validations/
+│   │       └── contact.ts        # Zod schema del formulario
+│   │
+│   └── types/
+│       └── index.ts
+│
+├── public/
+│   └── logo.svg
+│
+├── .env.local                    # RESEND_API_KEY, CONTACT_EMAIL
+├── .env.example
+├── docker-compose.yml
+├── Dockerfile
+├── next.config.js
+└── package.json
+```
+
+---
+
+## 4. Secciones de la Landing
+
+### 4.1 Navbar
+- Logo ChetAI a la izquierda
+- Links de ancla a la derecha: Servicios · Casos de éxito · Contacto
+- Sticky + fondo que aparece al hacer scroll
+- Botón CTA "Hablemos" que lleva a `#contacto`
+
+### 4.2 Hero
+- Headline principal potente (ej: *"Automatiza tu negocio con IA"*)
+- Subheadline explicando la propuesta de valor
+- Dos CTAs: "Ver servicios" y "Contactar"
+- Elemento visual destacado (animación o ilustración)
+
+### 4.3 Servicios
+Cada servicio como una card:
+- 🤖 Agentes de IA
+- 💬 Bots de WhatsApp
+- 🎙️ Asistentes de voz
+- 📄 Procesado de facturas (OCR)
+- 🎯 Cualificación de leads
+
+### 4.4 Casos de Éxito
+Cards con resultados reales:
+- Nombre del cliente (o sector si es anónimo)
+- Problema que tenían
+- Solución implementada
+- Resultado / métrica clave
+
+### 4.5 Contacto
+Formulario con campos:
+- Nombre*
+- Email*
+- Empresa
+- Mensaje*
+- Botón "Enviar mensaje"
+
+Al enviar: email llega a `ignacio@chetai.es` con los datos del formulario.
+
+---
+
+## 5. API Route — Formulario de Contacto
+
+```typescript
+// src/app/api/contact/route.ts
+import { Resend } from 'resend'
+import { contactSchema } from '@/lib/validations/contact'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
+
+export async function POST(request: Request) {
+  const body = await request.json()
+  const result = contactSchema.safeParse(body)
+
+  if (!result.success) {
+    return Response.json({ error: 'Datos inválidos' }, { status: 400 })
+  }
+
+  const { nombre, email, empresa, mensaje } = result.data
+
+  await resend.emails.send({
+    from: 'web@chetai.es',
+    to: 'ignacio@chetai.es',
+    subject: `Nuevo contacto web — ${nombre}`,
+    html: `
+      <p><strong>Nombre:</strong> ${nombre}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Empresa:</strong> ${empresa || '—'}</p>
+      <p><strong>Mensaje:</strong><br/>${mensaje}</p>
+    `
+  })
+
+  return Response.json({ ok: true })
+}
+```
+
+---
+
+## 6. Variables de Entorno
+
+```bash
+# .env.example
+RESEND_API_KEY=re_xxxxxxxxxxxx
+CONTACT_EMAIL=ignacio@chetai.es
+NEXT_PUBLIC_APP_URL=https://chetai.es
+```
+
+---
+
+## 7. Docker para Dokploy
+
+```dockerfile
+# Dockerfile
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+```
+
+En `next.config.js` añadir `output: 'standalone'`.
+
+---
+
+## 8. SEO — Metadata
+
+```typescript
+// src/app/layout.tsx
+export const metadata = {
+  title: 'ChetAI — Automatización con IA para PYMEs',
+  description: 'Agentes de IA, bots de WhatsApp, asistentes de voz y automatizaciones para pequeñas y medianas empresas en España.',
+  openGraph: {
+    title: 'ChetAI',
+    description: 'Automatiza tu negocio con IA',
+    url: 'https://chetai.es',
+    siteName: 'ChetAI',
+    locale: 'es_ES',
+    type: 'website',
+  },
+}
+```
+
+---
+
+## 9. Checklist de Implementación
+
+- [ ] Crear proyecto Next.js con Tailwind
+- [ ] Instalar dependencias: `resend`, `react-hook-form`, `zod`, `framer-motion`, `lucide-react`
+- [ ] Crear componentes de secciones (Hero, Services, CaseStudies, Contact)
+- [ ] Montar todo en `page.tsx` con `id` de ancla en cada sección
+- [ ] Implementar Navbar con scroll suave
+- [ ] Crear API Route `/api/contact` con Resend
+- [ ] Probar envío de formulario en local
+- [ ] Configurar dominio y variables en Dokploy
+- [ ] Dockerfile + deploy
+
+---
+
+## 10. Setup Inicial
+
+```bash
+npx create-next-app@latest chetai-web \
+  --typescript --tailwind --eslint --app --src-dir
+
+cd chetai-web
+
+npm install resend react-hook-form @hookform/resolvers \
+  zod framer-motion lucide-react clsx tailwind-merge
+
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add button input textarea card badge
+```
+
+---
+
+*ChetAI · ignacio@chetai.es · Extremadura, España*

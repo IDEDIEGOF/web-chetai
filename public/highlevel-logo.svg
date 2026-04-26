@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80" fill="none">
+  <!-- Yellow Arrow -->
+  <path d="M20 70 L20 25 L10 25 L25 5 L40 25 L30 25 L30 70 Z" fill="#F5A623"/>
+  <!-- Green Arrow -->
+  <path d="M45 70 L45 35 L38 35 L50 20 L62 35 L55 35 L55 70 Z" fill="#4CAF50"/>
+  <!-- Blue Arrow -->
+  <path d="M68 70 L68 25 L58 25 L73 5 L88 25 L78 25 L78 70 Z" fill="#2196F3"/>
+  <!-- HighLevel Text -->
+  <text x="100" y="55" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="700" fill="#FFFFFF">HighLevel</text>
+</svg>
